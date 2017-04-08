@@ -1,7 +1,7 @@
 import tensorflow as tf
 import glob
 import os
-files =  glob.glob("/media/mwoodson/Storage/youtube_competition/features/*.tfrecord") 
+files =  glob.glob("/home/mwoodson/features/*.tfrecord") 
 
 filesSize = len(files)
 cnt = 0 

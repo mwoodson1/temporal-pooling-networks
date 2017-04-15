@@ -52,6 +52,9 @@ flags.DEFINE_integer("rhn_cells", 512, "Number of RHN cells.")
 flags.DEFINE_integer("rhn_layers", 1, "Number of RHN layers.")
 flags.DEFINE_integer("rhn_depth", 5, "Depth of the RHN cells")
 
+flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
+flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
+
 class FrameLevelLogisticModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -222,7 +225,7 @@ class LstmModel(models.BaseModel):
     stacked_lstm = tf.contrib.rnn.MultiRNNCell(
             [
                 tf.contrib.rnn.BasicLSTMCell(
-                    lstm_size, forget_bias=1.0, state_is_tuple=False)
+                    lstm_size, forget_bias=1.0)
                 for _ in range(number_of_layers)
                 ], state_is_tuple=False)
 
@@ -236,7 +239,7 @@ class LstmModel(models.BaseModel):
                                FLAGS.video_level_classifier_model)
 
     return aggregated_model().create_model(
-        model_input=state,
+        model_input=state[-1].h,
         vocab_size=vocab_size,
         **unused_params)
 
@@ -331,7 +334,7 @@ class RHNModel(models.BaseModel):
 		return aggregated_model().create_model(model_input=state,vocab_size=vocab_size,**unused_params)
 
 
-class HierarchicalModel(models.BaseModel):
+class TimeSkipNetworkModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
     """Creates a model which uses a stack of LSTMs to represent the video.
@@ -348,7 +351,7 @@ class HierarchicalModel(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       'batch_size' x 'num_classes'.
     """
-    lstm_size = FLAGS.lstm_cells
+    lstm_sizes = FLAGS.lstm_cells
     number_of_layers = FLAGS.lstm_layers
 
     stacked_lstm = tf.contrib.rnn.MultiRNNCell(
@@ -363,6 +366,65 @@ class HierarchicalModel(models.BaseModel):
     outputs, state = tf.nn.dynamic_rnn(stacked_lstm, model_input,
                                        sequence_length=num_frames,
                                        dtype=tf.float32)
+
+    aggregated_model = getattr(video_level_models,
+                               FLAGS.video_level_classifier_model)
+
+    return aggregated_model().create_model(
+        model_input=state,
+        vocab_size=vocab_size,
+        **unused_params)
+
+def conv1d(inputs):
+  inputs = tf.expand_dims(inputs,axis=1)
+  inputs = tf.expand_dims(inputs,axis=1)
+  num_units = FLAGS.lstm_cells*2
+  filter_shape = [1,1,num_units,FLAGS.num_filters]
+  W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+  b = tf.Variable(tf.constant(0.1, shape=[FLAGS.num_filters]), name="b")
+  conv = tf.nn.conv2d(inputs, W, strides=[1, 1, 1, 1], padding="VALID",name="conv")
+  h = tf.nn.relu(tf.nn.bias_add(conv, b), name="activation")
+  return h
+
+class LstmConvModel(models.BaseModel):
+
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    """Creates a model which uses a stack of LSTMs to represent the video.
+
+    Args:
+      model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
+                   input features.
+      vocab_size: The number of classes in the dataset.
+      num_frames: A vector of length 'batch' which indicates the number of
+           frames for each video (before padding).
+
+    Returns:
+      A dictionary with a tensor containing the probability predictions of the
+      model in the 'predictions' key. The dimensions of the tensor are
+      'batch_size' x 'num_classes'.
+    """
+    lstm_size = 128#FLAGS.lstm_cells
+    number_of_layers = 1#FLAGS.lstm_layers
+    '''
+    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+            [
+                tf.contrib.rnn.BasicLSTMCell(
+                    lstm_size, forget_bias=1.0, state_is_tuple=False)
+                for _ in range(number_of_layers)
+                ], state_is_tuple=False)
+
+    loss = 0.0
+
+    outputs, state = tf.nn.dynamic_rnn(stacked_lstm, model_input,
+                                       sequence_length=num_frames,
+                                       dtype=tf.float32)
+    '''
+    lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
+    outputs, state = tf.nn.dynamic_rnn(lstm, model_input, sequence_length=num_frames,dtype=tf.float32)
+    state = tf.expand_dims(state,axis=1)
+    state = tf.expand_dims(state,axis=1)
+    state = slim.convolution(state, 1, 1, 1, "SAME")
+    #state = conv1d(state)
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)

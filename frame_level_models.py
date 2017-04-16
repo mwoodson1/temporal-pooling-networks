@@ -351,40 +351,37 @@ class TimeSkipNetworkModel(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       'batch_size' x 'num_classes'.
     """
-    lstm_sizes = FLAGS.lstm_cells
-    number_of_layers = FLAGS.lstm_layers
+    lstm_size = FLAGS.lstm_cells
+    #number_of_layers = FLAGS.lstm_layers
 
-    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
-            [
-                tf.contrib.rnn.BasicLSTMCell(
-                    lstm_size, forget_bias=1.0, state_is_tuple=False)
-                for _ in range(number_of_layers)
-                ], state_is_tuple=False)
+    with tf.variable_scope("lstm_1"):
+      lstm_1 = tf.contrib.rnn.BasicLSTMCell(
+                      lstm_size, forget_bias=1.0, state_is_tuple=False)
+      outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
+                                        sequence_length=num_frames,
+                                        swap_memory=True,
+                                        dtype=tf.float32)
+
+    skip_outputs = outputs[:,::2,:]
+
+    with tf.variable_scope("lstm_2"):
+      lstm_2 = tf.contrib.rnn.BasicLSTMCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
+      outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
+                                          sequence_length=num_frames/2,
+                                          swap_memory=True,
+                                          dtype=tf.float32)
 
     loss = 0.0
 
-    outputs, state = tf.nn.dynamic_rnn(stacked_lstm, model_input,
-                                       sequence_length=num_frames,
-                                       dtype=tf.float32)
+    
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
 
     return aggregated_model().create_model(
-        model_input=state,
+        model_input=state2,
         vocab_size=vocab_size,
         **unused_params)
-
-def conv1d(inputs):
-  inputs = tf.expand_dims(inputs,axis=1)
-  inputs = tf.expand_dims(inputs,axis=1)
-  num_units = FLAGS.lstm_cells*2
-  filter_shape = [1,1,num_units,FLAGS.num_filters]
-  W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
-  b = tf.Variable(tf.constant(0.1, shape=[FLAGS.num_filters]), name="b")
-  conv = tf.nn.conv2d(inputs, W, strides=[1, 1, 1, 1], padding="VALID",name="conv")
-  h = tf.nn.relu(tf.nn.bias_add(conv, b), name="activation")
-  return h
 
 class LstmConvModel(models.BaseModel):
 
@@ -403,9 +400,9 @@ class LstmConvModel(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       'batch_size' x 'num_classes'.
     """
-    lstm_size = 128#FLAGS.lstm_cells
-    number_of_layers = 1#FLAGS.lstm_layers
-    '''
+    lstm_size = FLAGS.lstm_cells
+    number_of_layers = FLAGS.lstm_layers
+
     stacked_lstm = tf.contrib.rnn.MultiRNNCell(
             [
                 tf.contrib.rnn.BasicLSTMCell(
@@ -418,13 +415,10 @@ class LstmConvModel(models.BaseModel):
     outputs, state = tf.nn.dynamic_rnn(stacked_lstm, model_input,
                                        sequence_length=num_frames,
                                        dtype=tf.float32)
-    '''
-    lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
-    outputs, state = tf.nn.dynamic_rnn(lstm, model_input, sequence_length=num_frames,dtype=tf.float32)
+
     state = tf.expand_dims(state,axis=1)
     state = tf.expand_dims(state,axis=1)
-    state = slim.convolution(state, 1, 1, 1, "SAME")
-    #state = conv1d(state)
+    state = slim.convolution(state, FLAGS.num_filters, 1, 1, "SAME")
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)

@@ -55,6 +55,8 @@ flags.DEFINE_integer("rhn_depth", 5, "Depth of the RHN cells")
 flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
 flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
 
+flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
+
 class FrameLevelLogisticModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -362,12 +364,12 @@ class TimeSkipNetworkModel(models.BaseModel):
                                         swap_memory=True,
                                         dtype=tf.float32)
 
-    skip_outputs = outputs[:,::2,:]
+    skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
     with tf.variable_scope("lstm_2"):
       lstm_2 = tf.contrib.rnn.BasicLSTMCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
-                                          sequence_length=num_frames/2,
+                                          sequence_length=num_frames/FLAGS.time_skip,
                                           swap_memory=True,
                                           dtype=tf.float32)
 

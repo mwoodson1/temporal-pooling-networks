@@ -69,6 +69,19 @@ def SampleRandomFrames(model_input, num_frames, num_samples):
   index = tf.stack([batch_index, frame_index], 2)
   return tf.gather_nd(model_input, index)
 
+def rankPool(frames,approximation=True):
+  """Performs rank pooling"""
+  if approximation:
+    frame_dims = tf.shape(frames)
+    T = frame_dims[1]
+    alpha = 2*tf.range(0,T) - T - 1
+    alpha = tf.expand_dims(tf.expand_dims(alpha,axis=0),axis=2)
+    weighted_frames = alpha * tmp
+    pooled_frames = tf.reduce_sum(weighted_frames,1)
+  else:
+    raise NotImplementedError
+  return pooled_frames
+
 def FramePooling(frames, method, **unused_params):
   """Pools over the frames of a video.
 
@@ -88,6 +101,8 @@ def FramePooling(frames, method, **unused_params):
     return tf.reduce_mean(frames, 1)
   elif method == "max":
     return tf.reduce_max(frames, 1)
+  elif method =="rank":
+    return rankPool(frames)
   elif method == "none":
     feature_size = frames.shape_as_list()[2]
     return tf.reshape(frames, [-1, feature_size])

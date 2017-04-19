@@ -234,7 +234,7 @@ class LstmModel(models.BaseModel):
                 tf.contrib.rnn.BasicLSTMCell(
                     lstm_size, forget_bias=1.0)
                 for _ in range(number_of_layers)
-                ], state_is_tuple=False)
+                ], state_is_tuple=True)
 
     loss = 0.0
 

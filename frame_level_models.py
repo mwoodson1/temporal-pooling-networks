@@ -257,33 +257,30 @@ class LstmModel(models.BaseModel):
           **unused_params)
 
 class BidirectionalLSTMModel(models.BaseModel):
-	def create_model(self, model_input, vocab_size, num_frames, **unused_params):
-		lstm_size = FLAGS.lstm_cells
-		number_of_layers = FLAGS.lstm_layers
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    lstm_size = FLAGS.lstm_cells
+    number_of_layers = FLAGS.lstm_layers
 		
-		lstm_fw = tf.contrib.rnn.MultiRNNCell(
+    lstm_fw = tf.contrib.rnn.MultiRNNCell(
 					[tf.contrib.rnn.BasicLSTMCell(lstm_size, state_is_tuple=False)
 					for _ in range(number_of_layers)
 				], state_is_tuple=False)
 
-		lstm_bw = tf.contrib.rnn.MultiRNNCell(
+    lstm_bw = tf.contrib.rnn.MultiRNNCell(
 					[tf.contrib.rnn.BasicLSTMCell(lstm_size, state_is_tuple=False)
 					for _ in range(number_of_layers)
 				], state_is_tuple=False)
 		
-		loss = 0.0
-		with tf.variable_scope("RNN"):
-			outputs1,states1 = tf.nn.bidirectional_dynamic_rnn(lstm_fw,
+    loss = 0.0
+    with tf.variable_scope("RNN"):
+      outputs1,states1 = tf.nn.bidirectional_dynamic_rnn(lstm_fw,
                                     lstm_bw,
                                     model_input,
                                     dtype=tf.float32,
                                     sequence_length=num_frames)
-		
-		outputs = tf.concat(outputs1, 2)
-		states = tf.concat(states1, 1)
-		
-		aggregated_model = getattr(video_level_models,
-	                               FLAGS.video_level_classifier_model)
+    outputs = tf.concat(outputs1, 2)
+    states = tf.concat(states1, 1)
+    aggregated_model = getattr(video_level_models, FLAGS.video_level_classifier_model)
     if FLAGS.use_lstm_outputs:
       return aggregated_model().create_model(
           model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),

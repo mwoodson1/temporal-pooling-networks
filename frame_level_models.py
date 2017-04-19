@@ -247,7 +247,7 @@ class LstmModel(models.BaseModel):
 
     if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
-          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
           **unused_params)
     else:
@@ -283,12 +283,12 @@ class BidirectionalLSTMModel(models.BaseModel):
     aggregated_model = getattr(video_level_models, FLAGS.video_level_classifier_model)
     if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
-          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
           **unused_params)
     else:
       return aggregated_model().create_model(
-          model_input=state,
+          model_input=states,
           vocab_size=vocab_size,
           **unused_params)
 
@@ -327,7 +327,7 @@ class GRUModel(models.BaseModel):
                                FLAGS.video_level_classifier_model)
     if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
-          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
           **unused_params)
     else:

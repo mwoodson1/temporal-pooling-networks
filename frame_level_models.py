@@ -245,7 +245,7 @@ class LstmModel(models.BaseModel):
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
 
-    if FLAGS.use_lstm_outputs:
+    if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
           model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
@@ -281,7 +281,7 @@ class BidirectionalLSTMModel(models.BaseModel):
     outputs = tf.concat(outputs1, 2)
     states = tf.concat(states1, 1)
     aggregated_model = getattr(video_level_models, FLAGS.video_level_classifier_model)
-    if FLAGS.use_lstm_outputs:
+    if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
           model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
@@ -325,7 +325,7 @@ class GRUModel(models.BaseModel):
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
-    if FLAGS.use_lstm_outputs:
+    if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
           model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
           vocab_size=vocab_size,
@@ -404,7 +404,6 @@ class TimeSkipNetworkModel(models.BaseModel):
                                FLAGS.video_level_classifier_model)
 
     if FLAGS.use_lstm_output:
-
       return aggregated_model().create_model(
         model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
         vocab_size=vocab_size,

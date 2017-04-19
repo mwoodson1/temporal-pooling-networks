@@ -45,8 +45,13 @@ flags.DEFINE_string("video_level_classifier_model", "MoeModel",
                     "Some Frame-Level models can be decomposed into a "
                     "generalized pooling operation followed by a "
                     "classifier layer")
+
 flags.DEFINE_integer("lstm_cells", 512, "Number of LSTM cells.")
 flags.DEFINE_integer("lstm_layers", 1, "Number of LSTM layers.")
+flags.DEFINE_bool("use_lstm_output", False, 
+                  "Use LSTM output instead of state for classification")
+flags.DEFINE_string("pooling_method", "average",
+                    "The type of pooling of frame level features to use.")
 
 flags.DEFINE_integer("rhn_cells", 512, "Number of RHN cells.")
 flags.DEFINE_integer("rhn_layers", 1, "Number of RHN layers.")
@@ -364,6 +369,7 @@ class TimeSkipNetworkModel(models.BaseModel):
                                         swap_memory=True,
                                         dtype=tf.float32)
 
+    #Adding the time skip
     skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
     with tf.variable_scope("lstm_2"):
@@ -375,15 +381,25 @@ class TimeSkipNetworkModel(models.BaseModel):
 
     loss = 0.0
 
-    
+    #Aggregating LSTM state and outputs
+    model_state = tf.concat([state,state2],axis=1)
+    model_outputs = tf.concat([outputs,outputs2],axis=1)
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
 
-    return aggregated_model().create_model(
-        model_input=state2,
+    if FLAGS.use_lstm_output:
+
+      return aggregated_model().create_model(
+        model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
         vocab_size=vocab_size,
-        **unused_params)
+        **unused_params
+      )
+    else:
+      return aggregated_model().create_model(
+          model_input=model_state,
+          vocab_size=vocab_size,
+          **unused_params)
 
 class LstmConvModel(models.BaseModel):
 

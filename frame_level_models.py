@@ -245,10 +245,16 @@ class LstmModel(models.BaseModel):
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
 
-    return aggregated_model().create_model(
-        model_input=state[-1].h,
-        vocab_size=vocab_size,
-        **unused_params)
+    if FLAGS.use_lstm_outputs:
+      return aggregated_model().create_model(
+          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          vocab_size=vocab_size,
+          **unused_params)
+    else:
+      return aggregated_model().create_model(
+          model_input=state,
+          vocab_size=vocab_size,
+          **unused_params)
 
 class BidirectionalLSTMModel(models.BaseModel):
 	def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -278,10 +284,16 @@ class BidirectionalLSTMModel(models.BaseModel):
 		
 		aggregated_model = getattr(video_level_models,
 	                               FLAGS.video_level_classifier_model)
-		return aggregated_model().create_model(
-	        model_input=states,
-	        vocab_size=vocab_size,
-	        **unused_params)
+    if FLAGS.use_lstm_outputs:
+      return aggregated_model().create_model(
+          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          vocab_size=vocab_size,
+          **unused_params)
+    else:
+      return aggregated_model().create_model(
+          model_input=state,
+          vocab_size=vocab_size,
+          **unused_params)
 
 class GRUModel(models.BaseModel):
 
@@ -316,10 +328,16 @@ class GRUModel(models.BaseModel):
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
-    return aggregated_model().create_model(
-        model_input=state,
-        vocab_size=vocab_size,
-        **unused_params)
+    if FLAGS.use_lstm_outputs:
+      return aggregated_model().create_model(
+          model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+          vocab_size=vocab_size,
+          **unused_params)
+    else:
+      return aggregated_model().create_model(
+          model_input=state,
+          vocab_size=vocab_size,
+          **unused_params)
 
 class RHNModel(models.BaseModel):
 
@@ -393,8 +411,7 @@ class TimeSkipNetworkModel(models.BaseModel):
       return aggregated_model().create_model(
         model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
         vocab_size=vocab_size,
-        **unused_params
-      )
+        **unused_params)
     else:
       return aggregated_model().create_model(
           model_input=model_state,

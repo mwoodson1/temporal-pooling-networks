@@ -252,7 +252,7 @@ class LstmModel(models.BaseModel):
           **unused_params)
     else:
       return aggregated_model().create_model(
-          model_input=state,
+          model_input=state[-1].h,
           vocab_size=vocab_size,
           **unused_params)
 
@@ -377,7 +377,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     #number_of_layers = FLAGS.lstm_layers
 
     with tf.variable_scope("lstm_1"):
-      lstm_1 = tf.contrib.rnn.BasicLSTMCell(
+      lstm_1 = tf.contrib.rnn.GRUCell(
                       lstm_size, forget_bias=1.0, state_is_tuple=False)
       outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
                                         sequence_length=num_frames,
@@ -388,7 +388,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
     with tf.variable_scope("lstm_2"):
-      lstm_2 = tf.contrib.rnn.BasicLSTMCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
+      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=num_frames/FLAGS.time_skip,
                                           swap_memory=True,

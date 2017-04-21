@@ -234,7 +234,7 @@ class LstmModel(models.BaseModel):
                 tf.contrib.rnn.BasicLSTMCell(
                     lstm_size, forget_bias=1.0)
                 for _ in range(number_of_layers)
-                ], state_is_tuple=True)
+                ])
 
     loss = 0.0
 
@@ -246,13 +246,12 @@ class LstmModel(models.BaseModel):
                                FLAGS.video_level_classifier_model)
 
     if FLAGS.use_lstm_output:
-      return aggregated_model().create_model(
-          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
-          vocab_size=vocab_size,
-          **unused_params)
+      agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
     else:
-      return aggregated_model().create_model(
-          model_input=state[-1].h,
+      agg_model_inputs = state[-1].h
+
+    return aggregated_model().create_model(
+          model_input=agg_model_inputs,
           vocab_size=vocab_size,
           **unused_params)
 
@@ -262,12 +261,12 @@ class BidirectionalLSTMModel(models.BaseModel):
     number_of_layers = FLAGS.lstm_layers
 		
     lstm_fw = tf.contrib.rnn.MultiRNNCell(
-					[tf.contrib.rnn.BasicLSTMCell(lstm_size, state_is_tuple=False)
+					[tf.contrib.rnn.BasicLSTMCell(lstm_size)
 					for _ in range(number_of_layers)
 				], state_is_tuple=False)
 
     lstm_bw = tf.contrib.rnn.MultiRNNCell(
-					[tf.contrib.rnn.BasicLSTMCell(lstm_size, state_is_tuple=False)
+					[tf.contrib.rnn.BasicLSTMCell(lstm_size)
 					for _ in range(number_of_layers)
 				], state_is_tuple=False)
 		
@@ -279,16 +278,17 @@ class BidirectionalLSTMModel(models.BaseModel):
                                     dtype=tf.float32,
                                     sequence_length=num_frames)
     outputs = tf.concat(outputs1, 2)
-    states = tf.concat(states1, 1)
+    state = tf.concat(states1, 1)
+
     aggregated_model = getattr(video_level_models, FLAGS.video_level_classifier_model)
+
     if FLAGS.use_lstm_output:
-      return aggregated_model().create_model(
-          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
-          vocab_size=vocab_size,
-          **unused_params)
+      agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
     else:
-      return aggregated_model().create_model(
-          model_input=states,
+      agg_model_inputs = state[-1].h
+    
+    return aggregated_model().create_model(
+          model_input=agg_model_inputs,
           vocab_size=vocab_size,
           **unused_params)
 
@@ -326,13 +326,12 @@ class GRUModel(models.BaseModel):
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
     if FLAGS.use_lstm_output:
-      return aggregated_model().create_model(
-          model_input=utils.FramePooling(outputs,FLAGS.pooling_method),
-          vocab_size=vocab_size,
-          **unused_params)
+      agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
     else:
-      return aggregated_model().create_model(
-          model_input=state,
+      agg_model_inputs = state[-1].h
+    
+    return aggregated_model().create_model(
+          model_input=agg_model_inputs,
           vocab_size=vocab_size,
           **unused_params)
 
@@ -378,7 +377,7 @@ class TimeSkipNetworkModel(models.BaseModel):
 
     with tf.variable_scope("lstm_1"):
       lstm_1 = tf.contrib.rnn.GRUCell(
-                      lstm_size, forget_bias=1.0, state_is_tuple=False)
+                      lstm_size, forget_bias=1.0)
       outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
                                         sequence_length=num_frames,
                                         swap_memory=True,
@@ -388,7 +387,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
     with tf.variable_scope("lstm_2"):
-      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size, forget_bias=1.0, state_is_tuple=False)
+      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size, forget_bias=1.0)
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=num_frames/FLAGS.time_skip,
                                           swap_memory=True,
@@ -437,7 +436,7 @@ class LstmConvModel(models.BaseModel):
     stacked_lstm = tf.contrib.rnn.MultiRNNCell(
             [
                 tf.contrib.rnn.BasicLSTMCell(
-                    lstm_size, forget_bias=1.0, state_is_tuple=False)
+                    lstm_size, forget_bias=1.0)
                 for _ in range(number_of_layers)
                 ], state_is_tuple=False)
 

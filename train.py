@@ -44,6 +44,9 @@ if __name__ == "__main__":
       "features (i.e. tensorflow.SequenceExample), then set --reader_type "
       "format. The (Sequence)Examples are expected to have 'rgb' byte array "
       "sequence feature as well as a 'labels' int64 context feature.")
+  flags.DEFINE_string(
+      "val_data_pattern", "", "File glob for validation set"
+  )
   flags.DEFINE_string("feature_names", "mean_rgb", "Name of the feature "
                       "to use for training.")
   flags.DEFINE_string("feature_sizes", "1024", "Length of the feature vectors.")
@@ -131,6 +134,7 @@ def validate_class_name(flag_value, category, modules, expected_superclass):
 
 def get_input_data_tensors(reader,
                            data_pattern,
+                           val_data_pattern,
                            batch_size=1000,
                            num_epochs=None,
                            num_readers=1):
@@ -154,7 +158,9 @@ def get_input_data_tensors(reader,
   """
   logging.info("Using batch size of " + str(batch_size) + " for training.")
   with tf.name_scope("train_input"):
-    files = gfile.Glob(data_pattern)
+    train_files = gfile.Glob(data_pattern)
+    val_files = gfile.Glob(val_data_pattern)
+    files = train_files + val_files
     if not files:
       raise IOError("Unable to find training files. data_pattern='" +
                     data_pattern + "'.")
@@ -182,6 +188,7 @@ def find_class_by_name(name, modules):
 def build_graph(reader,
                 model,
                 train_data_pattern,
+                val_data_pattern,
                 label_loss_fn=losses.CrossEntropyLoss(),
                 batch_size=1000,
                 base_learning_rate=0.01,
@@ -244,6 +251,7 @@ def build_graph(reader,
       get_input_data_tensors(
           reader,
           train_data_pattern,
+          val_data_pattern,
           batch_size=batch_size * num_towers,
           num_readers=num_readers,
           num_epochs=num_epochs))
@@ -546,6 +554,7 @@ class Trainer(object):
                  optimizer_class=optimizer_class,
                  clip_gradient_norm=FLAGS.clip_gradient_norm,
                  train_data_pattern=FLAGS.train_data_pattern,
+                 val_data_pattern=FLAGS.val_data_pattern,
                  label_loss_fn=label_loss_fn,
                  base_learning_rate=FLAGS.base_learning_rate,
                  learning_rate_decay=FLAGS.learning_rate_decay,

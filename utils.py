@@ -19,7 +19,6 @@ import numpy
 import tensorflow as tf
 from tensorflow import logging
 
-
 def Dequantize(feat_vector, max_quantized_value=2, min_quantized_value=-2):
   """Dequantize the feature from the byte format to the float format.
 
@@ -37,6 +36,9 @@ def Dequantize(feat_vector, max_quantized_value=2, min_quantized_value=-2):
   bias = (quantized_range / 512.0) + min_quantized_value
   return feat_vector * scalar + bias
 
+def get_k_worst(arr, k):
+  counts = numpy.bincount(arr)
+  return counts.argsort()[-k:][::-1]
 
 def MakeSummary(name, value):
   """Creates a tf.Summary proto with the given name and value."""
@@ -44,6 +46,35 @@ def MakeSummary(name, value):
   val = summary.value.add()
   val.tag = str(name)
   val.simple_value = float(value)
+  return summary
+
+def MakeHistSummary(name, values):
+  """Logs the histogram of a list/vector of values."""
+  values = numpy.array(values)
+  # Create histogram using numpy
+  counts, bin_edges = numpy.histogram(values, bins=4716)
+
+  # Fill fields of histogram proto
+  hist = tf.HistogramProto()
+  hist.min = float(numpy.min(values))
+  hist.max = float(numpy.max(values))
+  hist.num = int(numpy.prod(values.shape))
+  hist.sum = float(numpy.sum(values))
+  hist.sum_squares = float(numpy.sum(values**2))
+
+  # Requires equal number as bins, where the first goes from -DBL_MAX to bin_edges[1]
+  # See https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/framework/summary.proto#L30
+  # Thus, we drop the start of the first bin
+  bin_edges = bin_edges[1:]
+
+  # Add bin edges and counts
+  for edge in bin_edges:
+      hist.bucket_limit.append(edge)
+  for c in counts:
+      hist.bucket.append(c)
+
+  # Create and write Summary
+  summary = tf.Summary(value=[tf.Summary.Value(tag=name, histo=hist)])
   return summary
 
 

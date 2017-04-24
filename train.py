@@ -290,6 +290,7 @@ def build_graph(reader,
           else:
             label_loss = label_loss_fn.calculate_loss(predictions, tower_labels[i])
 
+          #confusion_matrix = tf.confusion_matrix(tower_labels[i], predictions, num_classes=4716)
           if "regularization_loss" in result.keys():
             reg_loss = result["regularization_loss"]
           else:
@@ -433,6 +434,8 @@ class Trainer(object):
             perr = eval_util.calculate_precision_at_equal_recall_rate(predictions_val,
                                                                       labels_val)
             gap = eval_util.calculate_gap(predictions_val, labels_val)
+            worst_classes = eval_util.calculate_worst_k_classes(predictions_val, labels_val)
+            top_worst_classes = utils.get_k_worst(worst_classes,20)
             eval_end_time = time.time()
             eval_time = eval_end_time - eval_start_time
 
@@ -440,6 +443,7 @@ class Trainer(object):
               " Examples/sec: " + ("%.2f" % examples_per_second) + " | Hit@1: " +
               ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
               " GAP: " + ("%.2f" % gap))
+            print "Top 5 worst classes: {}".format(top_5_worst_classes)
 
             sv.summary_writer.add_summary(
                 utils.MakeSummary("model/Training_Hit@1", hit_at_one),
@@ -451,6 +455,8 @@ class Trainer(object):
             sv.summary_writer.add_summary(
                 utils.MakeSummary("global_step/Examples/Second",
                                   examples_per_second), global_step_val)
+            sv.summary_writer.add_summary(
+                utils.MakeHistSummary("worst_classes", worst_classes), global_step_val)
             sv.summary_writer.flush()
 
             # Exporting the model every x steps

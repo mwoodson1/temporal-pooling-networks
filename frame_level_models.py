@@ -52,6 +52,8 @@ flags.DEFINE_bool("use_lstm_output", False,
                   "Use LSTM output instead of state for classification")
 flags.DEFINE_string("pooling_method", "average",
                     "The type of pooling of frame level features to use.")
+flags.DEFINE_bool("use_attention", False, "Apple attention to RNN models")
+flags.DEFINE_integer("attention_len", 10, "The size of the attention window")
 
 flags.DEFINE_integer("rhn_cells", 512, "Number of RHN cells.")
 flags.DEFINE_integer("rhn_layers", 1, "Number of RHN layers.")
@@ -229,12 +231,21 @@ class LstmModel(models.BaseModel):
     lstm_size = FLAGS.lstm_cells
     number_of_layers = FLAGS.lstm_layers
 
-    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
-            [
-                tf.contrib.rnn.BasicLSTMCell(
-                    lstm_size, forget_bias=1.0)
+    if FLAGS.use_attention:
+      stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+              [
+                tf.contrib.rnn.AttentionCellWrapper(
+                    tf.contrib.rnn.BasicLSTMCell(
+                      lstm_size, forget_bias=1.0), FLAGS.attention_len)
                 for _ in range(number_of_layers)
-                ])
+              ])
+    else:
+      stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+              [
+                tf.contrib.rnn.BasicLSTMCell(
+                      lstm_size, forget_bias=1.0)
+                for _ in range(number_of_layers)
+              ])
 
     loss = 0.0
 
@@ -311,11 +322,19 @@ class GRUModel(models.BaseModel):
     number_of_layers = FLAGS.lstm_layers
 
     ## Batch normalize the input
-    stacked_gru = tf.contrib.rnn.MultiRNNCell(
-            [
-                tf.contrib.rnn.GRUCell(gru_size)
+    if FLAGS.use_attention:
+      stacked_gru = tf.contrib.rnn.MultiRNNCell(
+              [
+                tf.contrib.rnn.AttentionCellWrapper(
+                  tf.contrib.rnn.GRUCell(gru_size), FLAGS.attention_len)
                 for _ in range(number_of_layers)
-            ], state_is_tuple=False)
+              ], state_is_tuple=False)
+    else:
+      stacked_gru = tf.contrib.rnn.MultiRNNCell(
+              [
+                  tf.contrib.rnn.GRUCell(gru_size)
+                  for _ in range(number_of_layers)
+              ], state_is_tuple=False)
 
     loss = 0.0
     with tf.variable_scope("RNN"):

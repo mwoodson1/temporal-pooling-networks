@@ -82,8 +82,13 @@ class MoeModel(models.BaseModel):
         biases_initializer=None,
         weights_regularizer=slim.l2_regularizer(l2_penalty),
         scope="gates")
-    expert_activations = slim.fully_connected(
+    expert_mid_activations = slim.fully_connected(
         model_input,
+        2048,
+        weights_regularizer=slim.l2_regularizer(l2_penalty),
+        scope="expertsMid")
+    expert_activations = slim.fully_connected(
+        expert_mid_activations,
         vocab_size * num_mixtures,
         activation_fn=None,
         weights_regularizer=slim.l2_regularizer(l2_penalty),

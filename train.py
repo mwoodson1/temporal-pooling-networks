@@ -226,7 +226,7 @@ def build_graph(reader,
   global_step = tf.Variable(0, trainable=False, name="global_step")
 
   local_device_protos = device_lib.list_local_devices()
-  gpus = [x.name for x in local_device_protos if x.device_type == 'GPU'][0]
+  gpus = [x.name for x in local_device_protos if x.device_type == 'GPU']
   num_gpus = len(gpus)
 
   if num_gpus > 0:

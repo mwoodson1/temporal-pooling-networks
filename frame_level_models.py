@@ -347,7 +347,7 @@ class GRUModel(models.BaseModel):
     if FLAGS.use_lstm_output:
       agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
     else:
-      agg_model_inputs = state[-1].h
+      agg_model_inputs = state[-1]
     
     return aggregated_model().create_model(
           model_input=agg_model_inputs,

@@ -387,7 +387,7 @@ class LayerNormLstmModel(models.BaseModel):
 
     loss = 0.0
     with tf.variable_scope("RNN"):
-      outputs, state = tf.nn.dynamic_rnn(stacked_lslstm, model_input,
+      outputs, state = tf.nn.dynamic_rnn(stacked_lnlstm, model_input,
                                          sequence_length=num_frames,
                                          dtype=tf.float32)
 

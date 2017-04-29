@@ -343,7 +343,7 @@ class GRUModel(models.BaseModel):
       stacked_gru = tf.contrib.rnn.MultiRNNCell(
               [
                 tf.contrib.rnn.ResidualWrapper(
-                    tf.contrib.rnn.GRUCell(gru_size, forget_bias=1.0))
+                    tf.contrib.rnn.GRUCell(gru_size))
                 for _ in range(number_of_layers)
               ])
     else:

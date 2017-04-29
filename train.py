@@ -104,6 +104,9 @@ if __name__ == "__main__":
       "Whether to write the device on which every op will run into the "
       "logs on startup.")
 
+  flags.DEFINE_integer("verbosity", 0, "How much to print during training")
+  flags.DEFINE_integer("gpu_num", 0, "Which GPU to train on if multiple available")
+
 def validate_class_name(flag_value, category, modules, expected_superclass):
   """Checks that the given string matches a class of the expected type.
 
@@ -226,7 +229,7 @@ def build_graph(reader,
   global_step = tf.Variable(0, trainable=False, name="global_step")
 
   local_device_protos = device_lib.list_local_devices()
-  gpus = [x.name for x in local_device_protos if x.device_type == 'GPU']
+  gpus = [x.name for x in local_device_protos if x.device_type == 'GPU'][FLAGS.gpu_num]
   num_gpus = len(gpus)
 
   if num_gpus > 0:
@@ -439,11 +442,12 @@ class Trainer(object):
             eval_end_time = time.time()
             eval_time = eval_end_time - eval_start_time
 
-            logging.info("training step " + str(global_step_val) + " | Loss: " + ("%.2f" % loss_val) +
-              " Examples/sec: " + ("%.2f" % examples_per_second) + " | Hit@1: " +
-              ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
-              " GAP: " + ("%.2f" % gap))
-            print "Top 20 worst classes: {}".format(top_worst_classes)
+            if FLAGS.verbosity == 1:
+              logging.info("training step " + str(global_step_val) + " | Loss: " + ("%.2f" % loss_val) +
+                " Examples/sec: " + ("%.2f" % examples_per_second) + " | Hit@1: " +
+                ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
+                " GAP: " + ("%.2f" % gap))
+              print "Top 20 worst classes: {}".format(top_worst_classes)
 
             sv.summary_writer.add_summary(
                 utils.MakeSummary("model/Training_Hit@1", hit_at_one),

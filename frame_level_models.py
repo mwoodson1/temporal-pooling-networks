@@ -63,6 +63,8 @@ flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
 flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
 
 flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
+flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep prob for layer norm LSTM")
+flags.DEFINE_bool("use_residuals", False, "Whether to use residual lstm wrapper")
 
 class FrameLevelLogisticModel(models.BaseModel):
 
@@ -239,6 +241,14 @@ class LstmModel(models.BaseModel):
                       lstm_size, forget_bias=1.0), FLAGS.attention_len)
                 for _ in range(number_of_layers)
               ])
+    elif FLAGS.use_residuals:
+      stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+              [
+                tf.contrib.rnn.ResidualWrapper(
+                    tf.contrib.rnn.BasicLSTMCell(
+                      lstm_size, forget_bias=1.0))
+                for _ in range(number_of_layers)
+              ])
     else:
       stacked_lstm = tf.contrib.rnn.MultiRNNCell(
               [
@@ -328,17 +338,56 @@ class GRUModel(models.BaseModel):
                 tf.contrib.rnn.AttentionCellWrapper(
                   tf.contrib.rnn.GRUCell(gru_size), FLAGS.attention_len)
                 for _ in range(number_of_layers)
-              ], state_is_tuple=False)
+              ])
+    elif FLAGS.use_residuals:
+      stacked_gru = tf.contrib.rnn.MultiRNNCell(
+              [
+                tf.contrib.rnn.ResidualWrapper(
+                    tf.contrib.rnn.GRUCell(gru_size, forget_bias=1.0))
+                for _ in range(number_of_layers)
+              ])
     else:
       stacked_gru = tf.contrib.rnn.MultiRNNCell(
               [
                   tf.contrib.rnn.GRUCell(gru_size)
                   for _ in range(number_of_layers)
-              ], state_is_tuple=False)
+              ])
 
     loss = 0.0
     with tf.variable_scope("RNN"):
       outputs, state = tf.nn.dynamic_rnn(stacked_gru, model_input,
+                                         sequence_length=num_frames,
+                                         dtype=tf.float32)
+
+    aggregated_model = getattr(video_level_models,
+                               FLAGS.video_level_classifier_model)
+    if FLAGS.use_lstm_output:
+      agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
+    else:
+      agg_model_inputs = state[-1]
+    
+    return aggregated_model().create_model(
+          model_input=agg_model_inputs,
+          vocab_size=vocab_size,
+          **unused_params)
+
+class LayerNormLstmModel(models.BaseModel):
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    lstm_size = FLAGS.lstm_cells
+    lstm_layers = FLAGS.lstm_layers
+    dropout_keep_prob = FLAGS.dropout_keep_prob
+
+    ## Batch normalize the input
+    stacked_lnlstm = tf.contrib.rnn.MultiRNNCell(
+            [
+              tf.contrib.rnn.LayerNormBasicLSTMCell(
+                lstm_size, dropout_keep_prob=dropout_keep_prob)
+              for _ in range(lstm_layers)
+            ])
+
+    loss = 0.0
+    with tf.variable_scope("RNN"):
+      outputs, state = tf.nn.dynamic_rnn(stacked_lslstm, model_input,
                                          sequence_length=num_frames,
                                          dtype=tf.float32)
 

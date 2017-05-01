@@ -444,8 +444,10 @@ class TimeSkipNetworkModel(models.BaseModel):
     #number_of_layers = FLAGS.lstm_layers
 
     with tf.variable_scope("lstm_1"):
-      lstm_1 = tf.contrib.rnn.GRUCell(
+      lstm_1 = tf.contrib.rnn.ResidualWrapper(
+                  tf.contrib.rnn.GRUCell(
                       lstm_size, forget_bias=1.0)
+              )
       outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
                                         sequence_length=num_frames,
                                         swap_memory=True,
@@ -455,7 +457,10 @@ class TimeSkipNetworkModel(models.BaseModel):
     skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
     with tf.variable_scope("lstm_2"):
-      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size, forget_bias=1.0)
+      lstm_2 = tf.contrib.rnn.ResidualWrapper(
+                  tf.contrib.rnn.GRUCell(
+                      lstm_size, forget_bias=1.0)
+              )
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=num_frames/FLAGS.time_skip,
                                           swap_memory=True,

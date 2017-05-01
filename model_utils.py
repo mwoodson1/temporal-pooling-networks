@@ -76,7 +76,7 @@ def rankPool(frames,approximation=True):
     T = frame_dims[1]
     alpha = 2*tf.range(0,T) - T - 1
     alpha = tf.expand_dims(tf.expand_dims(alpha,axis=0),axis=2)
-    weighted_frames = alpha * tmp
+    weighted_frames = alpha * frames
     pooled_frames = tf.reduce_sum(weighted_frames,1)
   else:
     raise NotImplementedError

@@ -446,11 +446,10 @@ class TimeSkipNetworkModel(models.BaseModel):
     with tf.variable_scope("lstm_1"):
       lstm_1 = tf.contrib.rnn.ResidualWrapper(
                   tf.contrib.rnn.GRUCell(
-                      lstm_size, forget_bias=1.0)
+                      lstm_size)
               )
       outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
                                         sequence_length=num_frames,
-                                        swap_memory=True,
                                         dtype=tf.float32)
 
     #Adding the time skip
@@ -459,11 +458,10 @@ class TimeSkipNetworkModel(models.BaseModel):
     with tf.variable_scope("lstm_2"):
       lstm_2 = tf.contrib.rnn.ResidualWrapper(
                   tf.contrib.rnn.GRUCell(
-                      lstm_size, forget_bias=1.0)
+                      lstm_size)
               )
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=num_frames/FLAGS.time_skip,
-                                          swap_memory=True,
                                           dtype=tf.float32)
 
     loss = 0.0

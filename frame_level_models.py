@@ -66,6 +66,7 @@ flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
 flags.DEFINE_integer("pool_size", 3, "The time frame to pool over")
 flags.DEFINE_bool("time_avg", True, "Average outputs over time after each LSTM layer")
 flags.DEFINE_integer("pool_stride", 1, "The stride over which to perform time frame pooling")
+flags.DEFINE_string("pool_type", "AVG", "The type of pooling to use in between LSTM layers")
 
 flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep prob for layer norm LSTM")
 flags.DEFINE_bool("use_residuals", False, "Whether to use residual lstm wrapper")
@@ -460,7 +461,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     if FLAGS.time_avg:
       pool_size = FLAGS.pool_size
       strides = FLAGS.pool_stride
-      skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.time_pool_pool,[strides])
+      skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.pool_type,[strides])
       new_seq_length = (num_frames - pool_size)/strides + 1
     else:
       skip_outputs = outputs[:,::FLAGS.time_skip,:]

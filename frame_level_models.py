@@ -63,6 +63,10 @@ flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
 flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
 
 flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
+flags.DEFINE_integer("pool_size", 3, "The time frame to pool over")
+flags.DEFINE_bool("time_avg", True, "Average outputs over time after each LSTM layer")
+flags.DEFINE_integer("pool_stride", 1, "The stride over which to perform time frame pooling")
+
 flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep prob for layer norm LSTM")
 flags.DEFINE_bool("use_residuals", False, "Whether to use residual lstm wrapper")
 
@@ -444,10 +448,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     #number_of_layers = FLAGS.lstm_layers
 
     with tf.variable_scope("lstm_1"):
-      lstm_1 = tf.contrib.rnn.ResidualWrapper(
-                  tf.contrib.rnn.GRUCell(
-                      lstm_size)
-              )
+      lstm_1 = tf.contrib.rnn.GRUCell(+lstm_size)
       outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
                                         sequence_length=num_frames,
                                         dtype=tf.float32)
@@ -455,13 +456,20 @@ class TimeSkipNetworkModel(models.BaseModel):
     #Adding the time skip
     skip_outputs = outputs[:,::FLAGS.time_skip,:]
 
+    #Average across time skip
+    if FLAGS.time_avg:
+      pool_size = FLAGS.pool_size
+      strides = FLAGS.pool_stride
+      skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.time_pool_pool,[strides])
+      new_seq_length = (num_frames - pool_size)/strides + 1
+    else:
+      skip_outputs = outputs[:,::FLAGS.time_skip,:]
+      new_seq_length = num_frames/FLAGS.time_skip
+
     with tf.variable_scope("lstm_2"):
-      lstm_2 = tf.contrib.rnn.ResidualWrapper(
-                  tf.contrib.rnn.GRUCell(
-                      lstm_size)
-              )
+      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size)
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
-                                          sequence_length=num_frames/FLAGS.time_skip,
+                                          sequence_length=new_seq_length,
                                           dtype=tf.float32)
 
     loss = 0.0

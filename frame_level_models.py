@@ -461,7 +461,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     if FLAGS.time_avg:
       pool_size = FLAGS.pool_size
       strides = FLAGS.pool_stride
-      skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.pool_type,[strides])
+      skip_outputs = tf.nn.pool(outputs,[pool_size],"VALID",FLAGS.pool_type,[strides])
       new_seq_length = (num_frames - pool_size)/strides + 1
     else:
       skip_outputs = outputs[:,::FLAGS.time_skip,:]

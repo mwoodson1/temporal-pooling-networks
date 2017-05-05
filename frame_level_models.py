@@ -446,7 +446,6 @@ class TimeSkipNetworkModel(models.BaseModel):
       'batch_size' x 'num_classes'.
     """
     lstm_size = FLAGS.lstm_cells
-    #number_of_layers = FLAGS.lstm_layers
 
     with tf.variable_scope("lstm_1"):
       lstm_1 = tf.contrib.rnn.GRUCell(+lstm_size)
@@ -461,7 +460,7 @@ class TimeSkipNetworkModel(models.BaseModel):
     if FLAGS.time_avg:
       pool_size = FLAGS.pool_size
       strides = FLAGS.pool_stride
-      skip_outputs = tf.nn.pool(outputs,[pool_size],"VALID",FLAGS.pool_type,[strides])
+      skip_outputs = tf.nn.pool(outputs,[pool_size],"VALID",FLAGS.pool_type,strides=[strides])
       new_seq_length = (num_frames - pool_size)/strides + 1
     else:
       skip_outputs = outputs[:,::FLAGS.time_skip,:]
@@ -472,12 +471,29 @@ class TimeSkipNetworkModel(models.BaseModel):
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=new_seq_length,
                                           dtype=tf.float32)
+    
+    #Average across time skip
+    if FLAGS.time_avg:
+      pool_size = FLAGS.pool_size
+      strides = FLAGS.pool_stride
+      skip_outputs = tf.nn.pool(outputs2,[pool_size],"VALID",FLAGS.pool_type,strides=[strides])
+      new_seq_length = (new_seq_length - pool_size)/strides + 1
+    else:
+      skip_outputs = outputs2[:,::FLAGS.time_skip,:]
+      new_seq_length = num_frames/FLAGS.time_skip
+
+    with tf.variable_scope("lstm_3"):
+      lstm_3 = tf.contrib.rnn.GRUCell(lstm_size)
+      outputs3, state3 = tf.nn.dynamic_rnn(lstm_3, skip_outputs,
+                                          sequence_length=new_seq_length,
+                                          dtype=tf.float32)
+    
 
     loss = 0.0
 
     #Aggregating LSTM state and outputs
-    model_state = tf.concat([state,state2],axis=1)
-    model_outputs = tf.concat([outputs,outputs2],axis=1)
+    model_state = tf.concat([state,state2,state3],axis=1)
+    model_outputs = tf.concat([outputs,outputs2,outputs3],axis=1)
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)

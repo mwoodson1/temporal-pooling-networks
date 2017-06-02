@@ -408,26 +408,6 @@ class LayerNormLstmModel(models.BaseModel):
           vocab_size=vocab_size,
           **unused_params)
 
-class RHNModel(models.BaseModel):
-
-	def create_model(self, model_input, vocab_size, num_frames, **unused_params):
-		"""Creates a model which uses an RHN network to represent the video.
-		"""
-		rhn_size = FLAGS.rhn_cells
-		num_layers = FLAGS.rhn_layers
-		rhn_depth = FLAGS.rhn_depth
-		
-		#cell = HighwayRNNCell(rhn_size,vocab_size,1,rhn_depth)
-		cell = HighwayRNNCell(rhn_size, num_highway_layers = rhn_depth)
-		
-		loss = 0.0
-		with tf.variable_scope("RHN"):
-			outputs, state = tf.nn.dynamic_rnn(cell,model_input,sequence_length=num_frames,dtype=tf.float32)
-			
-		aggregated_model = getattr(video_level_models,FLAGS.video_level_classifier_model)
-		return aggregated_model().create_model(model_input=state,vocab_size=vocab_size,**unused_params)
-
-
 class TimeSkipNetworkModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -453,15 +433,13 @@ class TimeSkipNetworkModel(models.BaseModel):
                                         sequence_length=num_frames,
                                         dtype=tf.float32)
 
-    #Adding the time skip
-    skip_outputs = outputs[:,::FLAGS.time_skip,:]
-
     #Average across time skip
     if FLAGS.time_avg:
       pool_size = FLAGS.pool_size
       strides = FLAGS.pool_stride
       skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.pool_type,"VALID",strides=[strides])
       new_seq_length = (num_frames - pool_size)/strides + 1
+    #Skipping time steps
     else:
       skip_outputs = outputs[:,::FLAGS.time_skip,:]
       new_seq_length = num_frames/FLAGS.time_skip
@@ -471,29 +449,12 @@ class TimeSkipNetworkModel(models.BaseModel):
       outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
                                           sequence_length=new_seq_length,
                                           dtype=tf.float32)
-    
-    #Average across time skip
-    if FLAGS.time_avg:
-      pool_size = FLAGS.pool_size
-      strides = FLAGS.pool_stride
-      skip_outputs = tf.nn.pool(outputs2,[pool_size],FLAGS.pool_type,"VALID",strides=[strides])
-      new_seq_length = (new_seq_length - pool_size)/strides + 1
-    else:
-      skip_outputs = outputs2[:,::FLAGS.time_skip,:]
-      new_seq_length = num_frames/FLAGS.time_skip
-
-    with tf.variable_scope("lstm_3"):
-      lstm_3 = tf.contrib.rnn.GRUCell(lstm_size)
-      outputs3, state3 = tf.nn.dynamic_rnn(lstm_3, skip_outputs,
-                                          sequence_length=new_seq_length,
-                                          dtype=tf.float32)
-    
 
     loss = 0.0
 
     #Aggregating LSTM state and outputs
-    model_state = tf.concat([state,state2,state3],axis=1)
-    model_outputs = tf.concat([outputs,outputs2,outputs3],axis=1)
+    model_state = tf.concat([state,state2],axis=1)
+    model_outputs = tf.concat([outputs,outputs2],axis=1)
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
@@ -508,48 +469,3 @@ class TimeSkipNetworkModel(models.BaseModel):
           model_input=model_state,
           vocab_size=vocab_size,
           **unused_params)
-
-class LstmConvModel(models.BaseModel):
-
-  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
-    """Creates a model which uses a stack of LSTMs to represent the video.
-
-    Args:
-      model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
-                   input features.
-      vocab_size: The number of classes in the dataset.
-      num_frames: A vector of length 'batch' which indicates the number of
-           frames for each video (before padding).
-
-    Returns:
-      A dictionary with a tensor containing the probability predictions of the
-      model in the 'predictions' key. The dimensions of the tensor are
-      'batch_size' x 'num_classes'.
-    """
-    lstm_size = FLAGS.lstm_cells
-    number_of_layers = FLAGS.lstm_layers
-
-    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
-            [
-                tf.contrib.rnn.BasicLSTMCell(
-                    lstm_size, forget_bias=1.0)
-                for _ in range(number_of_layers)
-                ], state_is_tuple=False)
-
-    loss = 0.0
-
-    outputs, state = tf.nn.dynamic_rnn(stacked_lstm, model_input,
-                                       sequence_length=num_frames,
-                                       dtype=tf.float32)
-
-    state = tf.expand_dims(state,axis=1)
-    state = tf.expand_dims(state,axis=1)
-    state = slim.convolution(state, FLAGS.num_filters, 1, 1, "SAME")
-
-    aggregated_model = getattr(video_level_models,
-                               FLAGS.video_level_classifier_model)
-
-    return aggregated_model().create_model(
-        model_input=state,
-        vocab_size=vocab_size,
-        **unused_params)

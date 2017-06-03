@@ -30,6 +30,7 @@ from tensorflow import flags
 from tensorflow import gfile
 from tensorflow import logging
 from tensorflow.python.client import device_lib
+from tensorflow.python import debug as tf_debug
 import utils
 
 FLAGS = flags.FLAGS
@@ -419,6 +420,8 @@ class Trainer(object):
 
     logging.info("%s: Starting managed session.", task_as_string(self.task))
     with sv.managed_session(target, config=self.config) as sess:
+      sess = tf.debug.LocalCLIDebugWrapper(sess)
+      sess.add_tensor_filter('has_inf_or_nan', tf_debug.has_inf_or_nan)
       try:
         logging.info("%s: Entering training loop.", task_as_string(self.task))
         while (not sv.should_stop()) and (not self.max_steps_reached):

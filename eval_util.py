@@ -41,20 +41,6 @@ def calculate_hit_at_one(predictions, actuals):
   hits = actuals[numpy.arange(actuals.shape[0]), top_prediction]
   return numpy.average(hits)
 
-def calculate_worst_k_classes(predictions, actuals):
-  top_prediction = numpy.argmax(predictions, 1)
-  actual_labels = numpy.argmax(actuals, 1)
-  hits = actuals[numpy.arange(actuals.shape[0]), top_prediction]
-
-  classes = []
-  for i in xrange(actuals.shape[0]):
-    actual_label = actual_labels[i]
-    top_pred = top_prediction[i]
-    if actual_label != top_pred:
-      classes.append(actual_label)
-  return classes
-
-
 def calculate_precision_at_equal_recall_rate(predictions, actuals):
   """Performs a local (numpy) calculation of the PERR.
 

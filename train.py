@@ -104,9 +104,6 @@ if __name__ == "__main__":
       "Whether to write the device on which every op will run into the "
       "logs on startup.")
 
-  flags.DEFINE_integer("verbosity", 0, "How much to print during training")
-  flags.DEFINE_integer("gpu_num", 0, "Which GPU to train on if multiple available")
-
 def validate_class_name(flag_value, category, modules, expected_superclass):
   """Checks that the given string matches a class of the expected type.
 
@@ -437,17 +434,13 @@ class Trainer(object):
             perr = eval_util.calculate_precision_at_equal_recall_rate(predictions_val,
                                                                       labels_val)
             gap = eval_util.calculate_gap(predictions_val, labels_val)
-            worst_classes = eval_util.calculate_worst_k_classes(predictions_val, labels_val)
-            top_worst_classes = utils.get_k_worst(worst_classes,20)
             eval_end_time = time.time()
             eval_time = eval_end_time - eval_start_time
 
-            if FLAGS.verbosity == 1:
-              logging.info("training step " + str(global_step_val) + " | Loss: " + ("%.2f" % loss_val) +
-                " Examples/sec: " + ("%.2f" % examples_per_second) + " | Hit@1: " +
-                ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
-                " GAP: " + ("%.2f" % gap))
-              print "Top 20 worst classes: {}".format(top_worst_classes)
+            logging.info("training step " + str(global_step_val) + " | Loss: " + ("%.2f" % loss_val) +
+              " Examples/sec: " + ("%.2f" % examples_per_second) + " | Hit@1: " +
+              ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
+              " GAP: " + ("%.2f" % gap))
 
             sv.summary_writer.add_summary(
                 utils.MakeSummary("model/Training_Hit@1", hit_at_one),

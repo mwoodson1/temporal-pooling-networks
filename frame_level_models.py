@@ -63,8 +63,8 @@ flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
 flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
 
 flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
+
 flags.DEFINE_integer("pool_size", 3, "The time frame to pool over")
-flags.DEFINE_bool("time_avg", True, "Average outputs over time after each LSTM layer")
 flags.DEFINE_integer("pool_stride", 1, "The stride over which to perform time frame pooling")
 flags.DEFINE_string("pool_type", "AVG", "The type of pooling to use in between LSTM layers")
 
@@ -408,57 +408,83 @@ class LayerNormLstmModel(models.BaseModel):
           vocab_size=vocab_size,
           **unused_params)
 
-class TimeSkipNetworkModel(models.BaseModel):
+class TemporalPoolingNetworkModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
-    """Creates a model which uses a stack of LSTMs to represent the video.
-
-    Args:
-      model_input: A 'batch_size' x 'max_frames' x 'num_features' matrix of
-                   input features.
-      vocab_size: The number of classes in the dataset.
-      num_frames: A vector of length 'batch' which indicates the number of
-           frames for each video (before padding).
-
-    Returns:
-      A dictionary with a tensor containing the probability predictions of the
-      model in the 'predictions' key. The dimensions of the tensor are
-      'batch_size' x 'num_classes'.
+    """Creates a model which uses a stack of GRU's with temporal pooling
     """
-    lstm_size = FLAGS.lstm_cells
+    gru_size = FLAGS.lstm_cells
+    pool_size = FLAGS.pool_size
+    pool_stride = FLAGS.pool_stride
+    pool_type = FLAGS.pool_type
 
-    with tf.variable_scope("lstm_1"):
-      lstm_1 = tf.contrib.rnn.GRUCell(+lstm_size)
-      outputs, state = tf.nn.dynamic_rnn(lstm_1, model_input,
-                                        sequence_length=num_frames,
-                                        dtype=tf.float32)
+    with tf.variable_scope("rnn_1"):
+      gru_1 = tf.contrib.rnn.GRUCell(gru_size)
+      outputs, state = tf.nn.dynamic_rnn(gru_1, model_input,
+                                         sequence_length=num_frames,
+                                         dtype=tf.float32)
 
-    #Average across time skip
-    if FLAGS.time_avg:
-      pool_size = FLAGS.pool_size
-      strides = FLAGS.pool_stride
-      skip_outputs = tf.nn.pool(outputs,[pool_size],FLAGS.pool_type,"VALID",strides=[strides])
-      new_seq_length = (num_frames - pool_size)/strides + 1
-    #Skipping time steps
-    else:
-      skip_outputs = outputs[:,::FLAGS.time_skip,:]
-      new_seq_length = num_frames/FLAGS.time_skip
+    pooled_outputs = tf.nn.pool(outputs, [pool_size], pool_type,
+                                "VALID", strides=[pool_stride])
+    new_seq_lenth = (num_frames - pool_size)/pool_stride + 1
 
-    with tf.variable_scope("lstm_2"):
-      lstm_2 = tf.contrib.rnn.GRUCell(lstm_size)
-      outputs2, state2 = tf.nn.dynamic_rnn(lstm_2, skip_outputs,
-                                          sequence_length=new_seq_length,
-                                          dtype=tf.float32)
-
+    with tf.variable_scope("rnn_2"):
+      gru_2 = tf.contrib.rnn.GRUCell(gru_size)
+      outputs2, state2 = tf.nn.dynamic_rnn(gru_2, pooled_outputs,
+                                           sequence_length=new_seq_lenth,
+                                           dtype=tf.float32)
+    
     loss = 0.0
 
-    #Aggregating LSTM state and outputs
-    model_state = tf.concat([state,state2],axis=1)
-    model_outputs = tf.concat([outputs,outputs2],axis=1)
+    model_state = tf.concat([state, state2], axis=1)
+    model_outputs = tf.concat([outputs, outputs2], axis=1)
 
     aggregated_model = getattr(video_level_models,
                                FLAGS.video_level_classifier_model)
+    
+    if FLAGS.use_lstm_output:
+      return aggregated_model().create_model(
+        model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),
+        vocab_size=vocab_size,
+        **unused_params)
+    else:
+      return aggregated_model().create_model(
+          model_input=model_state,
+          vocab_size=vocab_size,
+          **unused_params)
 
+class TemporalSkippingNetworkModel(models.BaseModel):
+
+  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
+    """Creates a model which uses a stack of GRU's with temporal pooling
+    """
+    gru_size = FLAGS.lstm_cells
+    pool_type = FLAGS.pool_type
+    time_skip = FLAGS.time_skip
+
+    with tf.variable_scope("rnn_1"):
+      gru_1 = tf.contrib.rnn.GRUCell(gru_size)
+      outputs, state = tf.nn.dynamic_rnn(gru_1, model_input,
+                                         sequence_length=num_frames,
+                                         dtype=tf.float32)
+
+    skipped_outputs = outputs[:,::time_skip,:]
+    new_seq_length = num_frames / time_skip
+
+    with tf.variable_scope("rnn_2"):
+      gru_2 = tf.contrib.rnn.GRUCell(gru_size)
+      outputs2, state2 = tf.nn.dynamic_rnn(gru_2, skipped_outputs,
+                                           sequence_length=new_seq_lenth,
+                                           dtype=tf.float32)
+    
+    loss = 0.0
+
+    model_state = tf.concat([state, state2], axis=1)
+    model_outputs = tf.concat([outputs, outputs2], axis=1)
+
+    aggregated_model = getattr(video_level_models,
+                               FLAGS.video_level_classifier_model)
+    
     if FLAGS.use_lstm_output:
       return aggregated_model().create_model(
         model_input=utils.FramePooling(model_outputs,FLAGS.pooling_method),

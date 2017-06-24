@@ -20,7 +20,6 @@ import models
 import video_level_models
 import tensorflow as tf
 import model_utils as utils
-from rhn import *
 
 import tensorflow.contrib.slim as slim
 from tensorflow import flags

@@ -452,8 +452,6 @@ class Trainer(object):
             sv.summary_writer.add_summary(
                 utils.MakeSummary("global_step/Examples/Second",
                                   examples_per_second), global_step_val)
-            sv.summary_writer.add_summary(
-                utils.MakeHistSummary("worst_classes", worst_classes), global_step_val)
             sv.summary_writer.flush()
 
             # Exporting the model every x steps

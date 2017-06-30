@@ -51,12 +51,6 @@ flags.DEFINE_bool("use_lstm_output", False,
                   "Use LSTM output instead of state for classification")
 flags.DEFINE_string("pooling_method", "average",
                     "The type of pooling of frame level features to use.")
-flags.DEFINE_bool("use_attention", False, "Apple attention to RNN models")
-flags.DEFINE_integer("attention_len", 10, "The size of the attention window")
-
-flags.DEFINE_integer("rhn_cells", 512, "Number of RHN cells.")
-flags.DEFINE_integer("rhn_layers", 1, "Number of RHN layers.")
-flags.DEFINE_integer("rhn_depth", 5, "Depth of the RHN cells")
 
 flags.DEFINE_integer("num_filters", 32, "Number of 1D convolution filters")
 flags.DEFINE_integer("filter_size", 5, "size of the 1D convolution filters")
@@ -66,6 +60,7 @@ flags.DEFINE_integer("time_skip", 2, "Number of time skips in each layer")
 flags.DEFINE_integer("pool_size", 3, "The time frame to pool over")
 flags.DEFINE_integer("pool_stride", 1, "The stride over which to perform time frame pooling")
 flags.DEFINE_string("pool_type", "AVG", "The type of pooling to use in between LSTM layers")
+flags.DEFINE_bool("learned_pooling", False, "Whether to have a learnable pooling operation")
 
 flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep prob for layer norm LSTM")
 flags.DEFINE_bool("use_residuals", False, "Whether to use residual lstm wrapper")

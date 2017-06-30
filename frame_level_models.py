@@ -375,37 +375,11 @@ class GRUModel(models.BaseModel):
           vocab_size=vocab_size,
           **unused_params)
 
-class LayerNormLstmModel(models.BaseModel):
-  def create_model(self, model_input, vocab_size, num_frames, **unused_params):
-    lstm_size = FLAGS.lstm_cells
-    lstm_layers = FLAGS.lstm_layers
-    dropout_keep_prob = FLAGS.dropout_keep_prob
-
-    ## Batch normalize the input
-    stacked_lnlstm = tf.contrib.rnn.MultiRNNCell(
-            [
-              tf.contrib.rnn.LayerNormBasicLSTMCell(
-                lstm_size, dropout_keep_prob=dropout_keep_prob)
-              for _ in range(lstm_layers)
-            ])
-
-    loss = 0.0
-    with tf.variable_scope("RNN"):
-      outputs, state = tf.nn.dynamic_rnn(stacked_lnlstm, model_input,
-                                         sequence_length=num_frames,
-                                         dtype=tf.float32)
-
-    aggregated_model = getattr(video_level_models,
-                               FLAGS.video_level_classifier_model)
-    if FLAGS.use_lstm_output:
-      agg_model_inputs = utils.FramePooling(outputs,FLAGS.pooling_method)
-    else:
-      agg_model_inputs = state[-1]
-    
-    return aggregated_model().create_model(
-          model_input=agg_model_inputs,
-          vocab_size=vocab_size,
-          **unused_params)
+def conv1D_pool(inputs,filter_size,stride,padding='VALID',name='pooling'):
+  with tf.variable_scope(name):
+    filters = tf.Variable(tf.random_normal([filter_size,1,1]))
+    out = tf.nn.conv1d(inputs,filters,stride=stride,padding=padding,name="learned_pooling")
+  return out
 
 class TemporalPoolingNetworkModel(models.BaseModel):
 
@@ -416,6 +390,7 @@ class TemporalPoolingNetworkModel(models.BaseModel):
     pool_size = FLAGS.pool_size
     pool_stride = FLAGS.pool_stride
     pool_type = FLAGS.pool_type
+    learned_pooling = FLAGS.learned_pooling
 
     with tf.variable_scope("rnn_1"):
       gru_1 = tf.contrib.rnn.GRUCell(gru_size)
@@ -423,9 +398,13 @@ class TemporalPoolingNetworkModel(models.BaseModel):
                                          sequence_length=num_frames,
                                          dtype=tf.float32)
 
-    pooled_outputs = tf.nn.pool(outputs, [pool_size], pool_type,
-                                "VALID", strides=[pool_stride])
-    new_seq_lenth = (num_frames - pool_size)/pool_stride + 1
+    if learned_pooling:
+      pooled_outputs = conv1D_pool(outputs,pool_size,pool_stride)
+      new_seq_lenth = (num_frames - pool_size)/pool_stride + 1
+    else:
+      pooled_outputs = tf.nn.pool(outputs, [pool_size], pool_type,
+                                  "VALID", strides=[pool_stride])
+      new_seq_lenth = (num_frames - pool_size)/pool_stride + 1
 
     with tf.variable_scope("rnn_2"):
       gru_2 = tf.contrib.rnn.GRUCell(gru_size)

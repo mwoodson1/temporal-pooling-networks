@@ -62,9 +62,6 @@ flags.DEFINE_integer("pool_stride", 1, "The stride over which to perform time fr
 flags.DEFINE_string("pool_type", "AVG", "The type of pooling to use in between LSTM layers")
 flags.DEFINE_bool("learned_pooling", False, "Whether to have a learnable pooling operation")
 
-flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep prob for layer norm LSTM")
-flags.DEFINE_bool("use_residuals", False, "Whether to use residual lstm wrapper")
-
 class FrameLevelLogisticModel(models.BaseModel):
 
   def create_model(self, model_input, vocab_size, num_frames, **unused_params):
@@ -372,7 +369,10 @@ class GRUModel(models.BaseModel):
 
 def conv1D_pool(inputs,filter_size,stride,padding='VALID',name='pooling'):
   with tf.variable_scope(name):
-    filters = tf.Variable(tf.random_normal([filter_size,1,1]))
+    input_dims = inputs.get_shape().as_list()
+    channels = input_dims[2]
+    filters = tf.get_variable("pooling_weights",[filter_size,channels,channels],
+                              initializer=tf.random_normal_initializer)
     out = tf.nn.conv1d(inputs,filters,stride=stride,padding=padding,name="learned_pooling")
   return out
 
